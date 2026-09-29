@@ -1,6 +1,6 @@
 [project]
 name = "clm-tune-mlx"
-version = "0.4.2"
+version = "0.4.3"
 description = "Train and run CLM-8B (Contrastive Language Model) on Apple Silicon: encoder and heads in MLX, no PyTorch needed"
 readme = "README.md"
 license = "Apache-2.0"

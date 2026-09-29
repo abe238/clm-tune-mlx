@@ -52,3 +52,14 @@ def test_batched_embed_matches_one_by_one():
     batch, _ = e.embed(texts)                       # right-padded batch, gathered at each row's length
     for t, v in zip(texts, batch):
         assert np.allclose(v, make().embed_one(t)[0])
+
+
+class FakeHybrid:  # Qwen3.5-family layout: text model nested under language_model
+    class language_model:
+        model = FakeInner()
+
+
+def test_hybrid_layout_uses_nested_text_model():
+    e = make()
+    e.model = FakeHybrid()
+    assert np.allclose(e.embed_one("aa bbbb ccc")[0], make().embed_one("aa bbbb ccc")[0])

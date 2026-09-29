@@ -30,11 +30,18 @@ class MLXEmbedder:
         self.load_seconds = time.time() - t
         self.max_tokens, self.cache_size, self.batch_tokens = max_tokens, cache_size, batch_tokens
         self.min_prefix = 64   # measured on M5 Pro: below ~60 shared tokens plain batching is faster
+        if hasattr(self.model, "language_model"):   # Qwen3.5-family hybrid: linear-attention layers keep no KV cache to share
+            self.min_prefix = 10**9
         self.cache: dict[str, np.ndarray] = {}
 
     def _ids(self, text: str) -> list[int]:
         # Tail kept; Qwen3's tokenizer adds no BOS/EOS, same as vLLM's default.
         return self.tokenizer.encode(text)[-self.max_tokens:] or self.tokenizer.encode(" ")
+
+    @property
+    def _body(self):
+        """The text model whose output is the final-norm hidden states (nested one level deeper in Qwen3.5-family models)."""
+        return getattr(self.model, "language_model", self.model).model
 
     def _forward(self, rows: list[list[int]], prefix: list[int] | None = None) -> np.ndarray:
         """Last-token, final-norm hidden states for a right-padded batch. Attention is causal, so
@@ -45,13 +52,13 @@ class MLXEmbedder:
         if prefix:
             from mlx_lm.models.cache import make_prompt_cache
             cache = make_prompt_cache(self.model)
-            self.model.model(mx.array([prefix]), cache=cache)
+            self._body(mx.array([prefix]), cache=cache)
             for c in cache:                                         # share the prefix across the batch
                 c.keys = mx.repeat(c.keys[..., :c.offset, :], len(rows), axis=0)
                 c.values = mx.repeat(c.values[..., :c.offset, :], len(rows), axis=0)
         n = max(len(r) for r in rows)
         ids = mx.array([r + [r[-1]] * (n - len(r)) for r in rows])
-        h = self.model.model(ids, cache=cache)                      # [b, n, hidden], after the final norm
+        h = self._body(ids, cache=cache)                      # [b, n, hidden], after the final norm
         last = h[mx.arange(len(rows)), mx.array([len(r) - 1 for r in rows])]
         v = np.array(last.astype(mx.float32))
         return v / (np.linalg.norm(v, axis=-1, keepdims=True) + 1e-12)

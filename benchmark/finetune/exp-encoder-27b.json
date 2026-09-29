@@ -1,0 +1,49 @@
+{
+ "config": {
+  "epochs": 80,
+  "patience": 20,
+  "schedule": "warmup_cosine",
+  "init_mode": "fresh"
+ },
+ "qwen3.8-27b-4bit": {
+  "dim": 5120,
+  "runs": [
+   {
+    "seed": 0,
+    "test_acc": 0.8509740259740259,
+    "val_acc": 0.856,
+    "train_seconds": 38.408329010009766
+   },
+   {
+    "seed": 1,
+    "test_acc": 0.8512987012987013,
+    "val_acc": 0.871,
+    "train_seconds": 38.38790225982666
+   },
+   {
+    "seed": 2,
+    "test_acc": 0.8516233766233766,
+    "val_acc": 0.868,
+    "train_seconds": 38.877843141555786
+   }
+  ],
+  "test_acc_mean": 0.8512987012987013,
+  "test_acc_min": 0.8509740259740259,
+  "test_acc_max": 0.8516233766233766,
+  "encoder": "mlx-community/Qwen3.8-27B-4bit",
+  "load_seconds": 5.262776851654053,
+  "embed_seconds": 933.7888538837433
+ },
+ "qwen3-4b-8bit": {
+  "dim": 2560,
+  "test_acc_mean": 0.8661255411255411,
+  "test_acc_min": 0.8623376623376623,
+  "test_acc_max": 0.8698051948051948
+ },
+ "qwen3-8b-8bit": {
+  "dim": 4096,
+  "test_acc_mean": 0.8804112554112554,
+  "test_acc_min": 0.8762987012987012,
+  "test_acc_max": 0.8834415584415585
+ }
+}
