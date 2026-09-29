@@ -1,0 +1,15 @@
+{
+ "linear_probe_all": {
+  "acc": 0.8720779418945312,
+  "train_seconds": 1.9586100578308105
+ },
+ "unseen_routes": {
+  "n_test": 680,
+  "chance_among_77": 0.012987012987012988,
+  "released_head_among_77": 0.013235294260084629,
+  "released_head_among_17": 0.16470588743686676,
+  "tuned_on_60_among_77": 0.20735293626785278,
+  "tuned_on_60_among_17_unseen": 0.5014705657958984,
+  "tuned_on_60_seen_route_msgs_among_77": 0.8679166436195374
+ }
+}

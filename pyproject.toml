@@ -1,0 +1,29 @@
+[project]
+name = "clm-tune-mlx"
+version = "0.3.0"
+description = "Train and run CLM-8B (Contrastive Language Model) on Apple Silicon: encoder and heads in MLX, no PyTorch needed"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = [
+    "mlx-lm>=0.31",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+torch = ["contrastive-lm==0.1.0", "torch>=2.0"]             # reference engine, .pt conversion, head training
+benchmark = ["transformers>=4.51", "requests>=2.31", "laya==0.3.3"]
+
+[project.scripts]
+clm-tune-mlx-serve = "clm_tune_mlx.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clm_tune_mlx"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

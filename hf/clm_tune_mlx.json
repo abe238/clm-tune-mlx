@@ -1,0 +1,23 @@
+{
+  "encoder": {
+    "default": "mlx-community/Qwen3-8B-8bit",
+    "default_revision": "48a0b75b1ae72503e21e1558d040bc227510ff06",
+    "bf16": "Qwen/Qwen3-8B",
+    "bf16_revision": "b968826d9c46dd6066d109eabc6255188de91218"
+  },
+  "head": {
+    "repo": "Contrastive-LM/CLM-v0.1-8B",
+    "file": "CLM_v0.1-8B.pt",
+    "sha256": "b2b4a8c9c2d39263eff78a351eb909a342ce9b3bf21a3f07c1d1bf15f1c4eda5",
+    "mlx_safetensors": {
+      "url": "https://github.com/abe238/clm-tune-mlx/releases/download/v0.3.0/CLM_v0.1-8B.safetensors",
+      "sha256": "5aa89d237523e423fc89f8c56f125a149c1cc2151c395842dc63d3bf6cd15151"
+    }
+  },
+  "verified": {
+    "date": "2026-09-26",
+    "bf16_same_answer_vs_pytorch": "118/120",
+    "q8_same_answer_vs_pytorch": "115/120",
+    "mlx_heads_vs_pytorch_heads": "120/120"
+  }
+}

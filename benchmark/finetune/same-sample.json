@@ -1,0 +1,6 @@
+{
+  "same_1000_sample": {
+    "clm_released": 0.0430000014603138,
+    "clm_finetuned_on_mac": 0.8360000252723694
+  }
+}

@@ -1,0 +1,6 @@
+{
+ "checkpoint": "checkpoints",
+ "device": "mps",
+ "load_seconds": 19.12409996986389,
+ "laya": "0.3.3"
+}

@@ -1,0 +1,18 @@
+{
+ "tools/clm->laya": {
+  "gold_in_top10": 0.6733333333333333,
+  "final_accuracy": 0.4866666666666667
+ },
+ "tools/bm25->laya": {
+  "gold_in_top10": 0.92,
+  "final_accuracy": 0.5133333333333333
+ },
+ "web/clm->laya": {
+  "gold_in_top10": 0.15333333333333332,
+  "final_accuracy": 0.06666666666666667
+ },
+ "web/bm25->laya": {
+  "gold_in_top10": 0.32,
+  "final_accuracy": 0.12
+ }
+}

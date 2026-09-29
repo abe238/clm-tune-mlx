@@ -1,0 +1,10 @@
+{
+ "package": "laya-mlx 0.2.0",
+ "checkpoint": "typed-decisions",
+ "dtype": "float16",
+ "load_seconds": 0.10142779350280762,
+ "peak_gib": 1.4013350307941437,
+ "warnings": [
+  "laya-mlx: this checkpoint ships temperatures outside [0.5, 5] which would distort confidence; clamping choice:11+=0.1006. Treat confidence from the affected buckets as uncalibrated."
+ ]
+}

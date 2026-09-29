@@ -1,0 +1,6 @@
+{
+ "checkpoint": "typed-decisions",
+ "device": "mps",
+ "load_seconds": 19.84159207344055,
+ "laya": "0.3.3"
+}

@@ -1,0 +1,18 @@
+{
+ "tag": "q8",
+ "encoder": "mlx-community/Qwen3-8B-8bit",
+ "load_s": 2.2509748935699463,
+ "one_question_options_cached": {
+  "p50_ms": 67.80219078063965,
+  "p95_ms": 102.14996337890625
+ },
+ "one_question_cold": {
+  "p50_ms": 167.86885261535645,
+  "p95_ms": 201.6429901123047
+ },
+ "eight_questions_one_state": {
+  "p50_ms": 175.60601234436035,
+  "questions_per_s": 45.556526756681535
+ },
+ "peak_gib": 8.340921737253666
+}

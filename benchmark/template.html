@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLM vs Laya</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7;
+  --good: #0ca30c; --bad: #d03b3b; --goodtext: #006300;
+  --seq0: #f0efec; --seq1: #cde2fb; --seq9: #104281;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9;
+    --goodtext: #0ca30c; --seq0: #383835;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9;
+  --goodtext: #0ca30c; --seq0: #383835;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font-size: 30px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 20px; margin: 44px 0 4px; }
+h3 { font-size: 15px; margin: 0 0 8px; }
+p.lede, .sub { color: var(--ink2); margin: 0 0 14px; max-width: 75ch; }
+.meta { color: var(--muted); font-size: 13px; }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 18px; }
+.grid { display: grid; gap: 14px; }
+.grid > * { min-width: 0; }
+.g2 { grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); }
+.tiles { grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); }
+.tile .v { font-size: 34px; font-weight: 650; line-height: 1.1; margin: 4px 0; }
+.tile .k { font-size: 13px; color: var(--ink2); display: flex; align-items: center; gap: 6px; }
+.tile .d { font-size: 12px; color: var(--muted); }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.callout { border: 1px solid var(--ring); padding: 12px 16px; background: var(--surface); border-radius: 12px; margin: 12px 0; color: var(--ink2); }
+.callout b { color: var(--ink); }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; font-size: 13.5px; }
+th { color: var(--ink2); font-weight: 600; font-size: 12.5px; }
+th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
+td.num, th.num { text-align: right; }
+.scroll { overflow-x: auto; }
+.best { font-weight: 700; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink2); margin: 4px 0 10px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+svg text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+svg .lab { fill: var(--ink2); font-size: 12px; }
+.tip { position: fixed; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--ring);
+  box-shadow: 0 6px 24px rgba(0,0,0,.18); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; max-width: 320px; z-index: 10; display: none; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 12px; }
+select, input[type=search] { font: inherit; font-size: 13.5px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--ring); background: var(--surface); color: var(--ink); }
+input[type=search] { min-width: 0; flex: 1 1 200px; }
+select { max-width: 100%; }
+.case { border-top: 1px solid var(--grid); padding: 12px 0; }
+.case summary { cursor: pointer; list-style: none; display: grid; grid-template-columns: 64px 1fr; gap: 10px; }
+.case summary::-webkit-details-marker { display: none; }
+.pill { display: inline-block; font-size: 11.5px; border-radius: 999px; padding: 1px 8px; border: 1px solid var(--ring); color: var(--ink2); margin: 0 4px 2px 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border: 1px solid var(--ring); border-radius: 7px; padding: 2px 7px; }
+.ok { color: var(--goodtext); font-weight: 700; } .no { color: var(--bad); font-weight: 700; }
+.state { white-space: pre-wrap; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--page); border-radius: 8px; padding: 10px; max-height: 220px; overflow: auto; }
+.dist { display: grid; grid-template-columns: 150px 1fr; gap: 3px 10px; align-items: center; font-size: 12.5px; margin: 8px 0; }
+.bar { height: 8px; border-radius: 4px; background: var(--grid); position: relative; overflow: hidden; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+.qlabel { color: var(--ink2); }
+.theme { position: fixed; top: 12px; right: 12px; }
+label { display: block; font-size: 13px; color: var(--ink2); margin-bottom: 8px; }
+textarea { display: block; width: 100%; margin-top: 4px; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 8px; border-radius: 8px; border: 1px solid var(--ring); background: var(--page); color: var(--ink); resize: vertical; }
+button.run { font: inherit; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 0; background: var(--ink); color: var(--page); cursor: pointer; }
+button.run:disabled { opacity: .5; cursor: wait; }
+code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); padding: 1px 5px; border-radius: 5px; border: 1px solid var(--ring); }
+.count { color: var(--ink2); font-size: 13px; }
+@media (max-width: 560px) { h1 { font-size: 24px; } .case summary { grid-template-columns: 1fr; } .dist { grid-template-columns: 110px 1fr; } }
+</style>
+</head>
+<body>
+<button class="theme" onclick="toggleTheme()" aria-label="Toggle light or dark theme" style="font:inherit;font-size:12px;padding:5px 9px;border-radius:8px;border:1px solid var(--ring);background:var(--surface);color:var(--ink2)">Theme</button>
+<main>
+  <h1>CLM-8B on MLX vs Laya</h1>
+  <p class="lede">Every model answered the same 120 hand-labeled System One questions (40 noul, 40 choice, 40 score) with identical state and question text. Nothing was tuned per model; the set was frozen and hashed before any model ran.</p>
+  <div class="meta" id="meta"></div>
+
+  <h2>Live test</h2>
+  <p class="sub" id="live-status">Ask any question of every model at once. Needs the local server: <code>python3 serve.py</code>, then open <code>http://127.0.0.1:8765</code>.</p>
+  <div class="card" id="live">
+    <div class="filters" style="margin-top:0">
+      <select id="l-case" aria-label="Load a benchmark case"><option value="">Load a benchmark case…</option></select>
+      <select id="l-type" aria-label="Question type"><option>noul</option><option>choice</option><option>score</option></select>
+    </div>
+    <div class="grid g2">
+      <label>State <span class="meta">(plain text, or JSON object)</span><textarea id="l-state" rows="6">{"ticket": "I was charged twice this month, please refund one charge."}</textarea></label>
+      <div>
+        <label>Instructions<textarea id="l-ins" rows="2">Is `ticket` about a billing or payment problem?</textarea></label>
+        <label id="l-crit-wrap" style="display:none">Options <span class="meta" id="l-crit-hint"></span><textarea id="l-crit" rows="5"></textarea></label>
+      </div>
+    </div>
+    <div class="filters" id="l-models"></div>
+    <button id="l-run" class="run">Ask all models</button> <span class="meta" id="l-msg"></span>
+    <div id="l-out" class="grid g2" style="margin-top:12px"></div>
+  </div>
+
+  <h2>Headline</h2>
+  <p class="sub">Accuracy on all 120 cases (top-probability answer equals the gold label).</p>
+  <div class="grid tiles" id="tiles"></div>
+  <div id="headline"></div>
+
+  <h2>Is the MLX port computing the right thing?</h2>
+  <p class="sub">Accuracy alone can't tell a correct port from a lucky broken one. These are cosine similarities between the MLX encoder's embeddings and a PyTorch reference of the same Qwen3-8B, on a random sample of the texts the models actually saw.</p>
+  <div id="parity"></div>
+  <h3 style="margin-top:18px">Ports and variants</h3>
+  <p class="sub">Every MLX build, checked decision by decision against its PyTorch original on all 120 cases.</p>
+  <div class="card scroll"><table id="variants"></table></div>
+
+  <h2>Leaderboard</h2>
+  <p class="sub">Click a column to sort. Lower is better for Brier, log loss, ECE, score MAE and latency. All models ran locally on this Mac (M5 Pro).</p>
+  <div class="card scroll"><table id="board"></table></div>
+
+  <h2>Accuracy by question type</h2>
+  <div class="card"><div class="legend" id="legend-type"></div><div id="bytype"></div></div>
+
+  <h2>Where each model breaks</h2>
+  <p class="sub">Accuracy per slice. Darker is better. Slice sizes are small (4 to 46 cases), so a single case moves a cell by 2 to 25 points: read patterns across rows, not single cells.</p>
+  <div class="card scroll" id="heat"></div>
+
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card"><h3>Calibration</h3><p class="sub" style="font-size:13px">When a model says 80%, is it right 80% of the time? Points on the diagonal are perfectly calibrated; below it, overconfident.</p><div class="legend" id="legend-cal"></div><div id="calib"></div></div>
+    <div class="card"><h3>Accuracy if you only act when confident</h3><p class="sub" style="font-size:13px">Sort answers by confidence and act on the top share. A model whose line stays high as coverage shrinks gives you a usable confidence gate.</p><div class="legend" id="legend-cov"></div><div id="cover"></div></div>
+  </div>
+
+  <h2>How often do the models agree?</h2>
+  <p class="sub">Share of the 120 cases where two models gave the same label.</p>
+  <div class="card scroll" id="agree"></div>
+
+  <h2>Case explorer</h2>
+  <p class="sub">Every case with every model's answer. Expand a case to see the full state and each model's whole distribution. The bar under each model is the probability it gave the correct answer.</p>
+  <div class="filters">
+    <select id="f-type"><option value="">All types</option><option>noul</option><option>choice</option><option>score</option></select>
+    <select id="f-diff"><option value="">All difficulties</option><option>easy</option><option>medium</option><option>hard</option></select>
+    <select id="f-slice"><option value="">All domains and flags</option></select>
+    <select id="f-view">
+      <option value="">All cases</option>
+      <option value="disagree">Models disagree</option>
+      <option value="allwrong">Every model wrong</option>
+      <option value="clmonly">CLM right, others wrong</option>
+      <option value="confwrong">Confidently wrong (any model, p ≥ 0.8)</option>
+    </select>
+    <input type="search" id="f-q" placeholder="Search state or question">
+    <span class="count" id="f-count"></span>
+  </div>
+  <div class="card" id="cases"></div>
+
+  <h2>Method and caveats</h2>
+  <div class="card" id="method"></div>
+</main>
+<div class="tip" id="tip"></div>
+<script id="data" type="application/json">__DATA__</script>
+<script>
+const D = JSON.parse(document.getElementById('data').textContent);
+const NAMES = {"clm-mlx-q8":"CLM-8B · MLX 8-bit","clm-mlx-bf16":"CLM-8B · MLX bf16","clm-raw-q8":"CLM encoder only (no heads)",
+  "laya-english":"Laya (English, 421M)","laya-typed-decisions":"Laya typed-decisions (421M)","laya-mlx-typed-decisions-fp16":"laya-mlx typed-decisions · fp16"};
+const SLOT = {"clm-mlx-q8":1,"clm-mlx-bf16":2,"clm-raw-q8":3,"laya-english":4,"laya-typed-decisions":5,"laya-mlx-typed-decisions-fp16":7};
+const col = m => `var(--s${SLOT[m]||1})`;
+const nm = m => NAMES[m] || m;
+const M = D.models, S = D.slices;
+const pct = x => x == null ? '–' : (100*x).toFixed(1)+'%';
+const f3 = x => x == null ? '–' : x.toFixed(3);
+const ms = x => x == null ? '–' : (x < 10 ? x.toFixed(1) : Math.round(x)) + ' ms';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toggleTheme(){ const r=document.documentElement; const dark = r.dataset.theme ? r.dataset.theme==='dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; try{localStorage.setItem('theme', r.dataset.theme)}catch(e){} }
+try{ const t=localStorage.getItem('theme'); if(t) document.documentElement.dataset.theme=t; }catch(e){}
+const tip = document.getElementById('tip');
+function showTip(e, html){ tip.innerHTML = html; tip.style.display='block'; const x = Math.min(e.clientX+14, innerWidth-tip.offsetWidth-8); const y = Math.min(e.clientY+14, innerHeight-tip.offsetHeight-8); tip.style.left=x+'px'; tip.style.top=y+'px'; }
+function hideTip(){ tip.style.display='none'; }
+function legend(id){ document.getElementById(id).innerHTML = M.map(m=>`<span><i class="sw" style="background:${col(m)}"></i>${nm(m)}</span>`).join(''); }
+
+// ---- meta
+const q8 = D.metas['clm-q8']||{};
+document.getElementById('meta').innerHTML = `Run 2026-09-26 · ${D.n} cases · cases.json sha256 ${D.hash.slice(0,12)}… · CLM head CLM_v0.1-8B.pt (sha256 b2b4a8c9…) · MLX encoder peak ${q8.peak_gib?q8.peak_gib.toFixed(1)+' GB':'–'}`;
+
+// ---- tiles + headline
+const all = S.all;
+const ranked = [...M].sort((a,b)=>all[b].accuracy-all[a].accuracy);
+document.getElementById('tiles').innerHTML = ranked.map(m=>`<div class="card tile"><div class="k"><i class="sw" style="background:${col(m)}"></i>${nm(m)}</div><div class="v">${pct(all[m].accuracy)}</div><div class="d">Brier ${f3(all[m].brier)} · ECE ${f3(all[m].ece)}</div></div>`).join('');
+document.getElementById('headline').innerHTML = `<div class="callout">${D.headline}</div>`;
+
+// ---- parity
+(function(){
+  const el = document.getElementById('parity');
+  if(!D.parity){ el.innerHTML = '<div class="callout">Parity check not run.</div>'; return; }
+  const rows = Object.entries(D.parity.per_tag).map(([t,v])=>`<tr><td>MLX ${t==='q8'?'8-bit':t}</td><td class="num">${v.cos_min.toFixed(5)}</td><td class="num">${v.cos_mean.toFixed(5)}</td><td>${v.cos_min>0.99?'<span class="ok">✓</span> matches the reference':'<span class="no">✗</span> drifts from the reference'}</td></tr>`).join('');
+  el.innerHTML = `<div class="card scroll"><table><tr><th>Encoder</th><th class="num">Min cosine</th><th class="num">Mean cosine</th><th>Verdict (threshold 0.99)</th></tr>${rows}</table><p class="meta" style="margin:8px 0 0">Reference: ${esc(D.parity.reference)}. ${D.parity.k} texts.</p></div>${D.parity_note?`<div class="callout">${D.parity_note}</div>`:''}`;
+})();
+
+// ---- leaderboard
+const COLS = [["accuracy","Accuracy",pct,1],["brier","Brier",f3,-1],["logloss","Log loss",f3,-1],["ece","ECE",f3,-1],["conf_right","Conf. when right",pct,1],["conf_wrong","Conf. when wrong",pct,-1],["score_mae","Score MAE",f3,-1],["p50_ms","p50 latency",ms,-1],["p95_ms","p95 latency",ms,-1]];
+let sortKey = "accuracy", sortDir = -1;
+function board(){
+  const rows = [...M].sort((a,b)=>((all[a][sortKey]??1e9)-(all[b][sortKey]??1e9))*sortDir);
+  const best = {}; COLS.forEach(([k,,,dir])=>{ const v = M.map(m=>all[m][k]).filter(x=>x!=null); best[k] = dir>0?Math.max(...v):Math.min(...v); });
+  document.getElementById('board').innerHTML = `<tr><th>Model</th>${COLS.map(([k,l])=>`<th class="num sortable" onclick="sortBy('${k}')">${l}${sortKey===k?(sortDir<0?' ↓':' ↑'):''}</th>`).join('')}<th class="num">Errors</th></tr>` +
+    rows.map(m=>`<tr><td><span style="display:inline-flex;gap:6px;align-items:center"><i class="sw" style="background:${col(m)}"></i>${nm(m)}</span></td>${COLS.map(([k,,fmt])=>`<td class="num ${all[m][k]===best[k]?'best':''}">${fmt(all[m][k])}</td>`).join('')}<td class="num">${all[m].errors}</td></tr>`).join('');
+}
+function sortBy(k){ if(sortKey===k) sortDir=-sortDir; else { sortKey=k; sortDir = (COLS.find(c=>c[0]===k)[3]>0)?-1:1; } board(); }
+board();
+
+// ---- grouped bars by type
+function bars(){
+  legend('legend-type');
+  const groups = ["type:noul","type:choice","type:score"], W = 1100, H = 280, pad = {l:40,r:10,t:10,b:30};
+  const gw = (W-pad.l-pad.r)/groups.length, bw = Math.min(26, (gw-40)/M.length - 2);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Accuracy by question type and model">`;
+  for(let t=0;t<=1.0001;t+=0.25){ const y = pad.t+(1-t)*(H-pad.t-pad.b); s += `<line x1="${pad.l}" x2="${W-pad.r}" y1="${y}" y2="${y}" stroke="var(--grid)"/><text x="${pad.l-6}" y="${y+4}" text-anchor="end">${t*100}%</text>`; }
+  groups.forEach((g,gi)=>{
+    const x0 = pad.l + gi*gw + (gw - M.length*(bw+2))/2;
+    M.forEach((m,mi)=>{ const v = S[g][m].accuracy, h = v*(H-pad.t-pad.b), x = x0+mi*(bw+2), y = H-pad.b-h;
+      s += `<path d="M${x},${H-pad.b} V${y+4} q0,-4 4,-4 h${bw-8} q4,0 4,4 V${H-pad.b} Z" fill="${col(m)}" data-tip="${esc(nm(m))}<br>${g.split(':')[1]}: <b>${pct(v)}</b> (${Math.round(v*S[g]._n)}/${S[g]._n})"/>`; });
+    s += `<text class="lab" x="${pad.l+gi*gw+gw/2}" y="${H-8}" text-anchor="middle">${g.split(':')[1]} (n=${S[g]._n})</text>`;
+  });
+  s += `<line x1="${pad.l}" x2="${W-pad.r}" y1="${H-pad.b}" y2="${H-pad.b}" stroke="var(--axis)"/></svg>`;
+  document.getElementById('bytype').innerHTML = s;
+}
+bars();
+
+// ---- heatmap
+function heat(){
+  const keys = Object.keys(S).filter(k=>k!=="all");
+  const lab = k => { const [a,b] = k.split(':'); return ({type:'Type',difficulty:'Difficulty',domain:'Domain',flag:'Flag'})[a]+': '+({neg:'negation',distractor:'distractor',nonen:'non-English',math:'arithmetic',date:'date reasoning',long:'long input (>512 tokens)',plain:'no special trait'}[b]||b); };
+  const shade = v => { if(v==null) return 'transparent'; return `color-mix(in oklab, var(--seq9) ${Math.round(v*100)}%, var(--seq0))`; };
+  let h = `<table><tr><th>Slice</th><th class="num">n</th>${M.map(m=>`<th class="num"><span style="display:inline-flex;gap:5px;align-items:center"><i class="sw" style="background:${col(m)}"></i>${nm(m)}</span></th>`).join('')}</tr>`;
+  keys.forEach(k=>{ h += `<tr><td>${lab(k)}</td><td class="num">${S[k]._n}</td>` + M.map(m=>{ const v = S[k][m].accuracy; return `<td class="num" data-tip="${esc(nm(m))}<br>${esc(lab(k))}: <b>${pct(v)}</b> of ${S[k]._n}" style="background:${shade(v)};color:${v>0.55?'#fff':'var(--ink)'};border-bottom:2px solid var(--surface)">${pct(v)}</td>`; }).join('') + `</tr>`; });
+  document.getElementById('heat').innerHTML = h + `</table>`;
+}
+heat();
+
+// ---- line charts (calibration + coverage)
+function lineChart(el, series, {xmin=0,xmax=1,ymin=0,ymax=1,xl,yl,diag=false,xfmt,yfmt,tipFn}){
+  const W = 520, H = 320, p = {l:44,r:12,t:10,b:38};
+  const X = x => p.l + (x-xmin)/(xmax-xmin)*(W-p.l-p.r), Y = y => H-p.b - (y-ymin)/(ymax-ymin)*(H-p.t-p.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(yl)} against ${esc(xl)}">`;
+  for(let i=0;i<=4;i++){ const y = ymin+(ymax-ymin)*i/4, x = xmin+(xmax-xmin)*i/4;
+    s += `<line x1="${p.l}" x2="${W-p.r}" y1="${Y(y)}" y2="${Y(y)}" stroke="var(--grid)"/><text x="${p.l-6}" y="${Y(y)+4}" text-anchor="end">${yfmt(y)}</text><text x="${X(x)}" y="${H-p.b+15}" text-anchor="middle">${xfmt(x)}</text>`; }
+  if(diag) s += `<line x1="${X(xmin)}" y1="${Y(ymin)}" x2="${X(xmax)}" y2="${Y(ymax)}" stroke="var(--axis)" stroke-dasharray="4 4"/>`;
+  s += `<text x="${(p.l+W-p.r)/2}" y="${H-4}" text-anchor="middle" class="lab">${esc(xl)}</text>`;
+  series.forEach(({m,pts})=>{ if(!pts.length) return;
+    s += `<polyline fill="none" stroke="${col(m)}" stroke-width="2" stroke-linejoin="round" points="${pts.map(q=>`${X(q.x)},${Y(q.y)}`).join(' ')}"/>`;
+    pts.forEach(q=>{ if(q.dot) s += `<circle cx="${X(q.x)}" cy="${Y(q.y)}" r="4" fill="${col(m)}" stroke="var(--surface)" stroke-width="2" data-tip="${esc(tipFn(m,q))}"/>`; });
+  });
+  el.innerHTML = s + `<line x1="${p.l}" x2="${W-p.r}" y1="${Y(ymin)}" y2="${Y(ymin)}" stroke="var(--axis)"/></svg>`;
+}
+legend('legend-cal'); legend('legend-cov');
+lineChart(document.getElementById('calib'), M.map(m=>({m, pts: D.calibration[m].map(b=>({x:b.conf,y:b.acc,n:b.n,dot:true}))})),
+  {xmin:0.2,xl:'Stated confidence (probability of chosen answer)',yl:'Observed accuracy',diag:true,xfmt:x=>Math.round(x*100)+'%',yfmt:y=>Math.round(y*100)+'%',tipFn:(m,q)=>`${nm(m)}<br>said ${pct(q.x)}, right ${pct(q.y)} (n=${q.n})`});
+lineChart(document.getElementById('cover'), M.map(m=>{ const c = D.coverage[m]; return {m, pts: c.map((q,i)=>({x:q.coverage,y:q.accuracy,t:q.threshold,dot:(i+1)%12===0||i===c.length-1}))}; }),
+  {xmin:0,ymin:0.3,xl:'Coverage (share of cases acted on, most confident first)',yl:'Accuracy on acted cases',xfmt:x=>Math.round(x*100)+'%',yfmt:y=>Math.round(y*100)+'%',tipFn:(m,q)=>`${nm(m)}<br>act on top ${pct(q.x)} (conf ≥ ${pct(q.t)})<br>accuracy ${pct(q.y)}`});
+
+// ---- agreement matrix
+(function(){
+  const shade = v => `color-mix(in oklab, var(--seq9) ${Math.round(Math.max(0,(v-0.4)/0.6)*100)}%, var(--seq0))`;
+  let h = `<table><tr><th></th>${M.map(m=>`<th class="num">${nm(m)}</th>`).join('')}</tr>`;
+  M.forEach(a=>{ h += `<tr><th><span style="display:inline-flex;gap:5px;align-items:center"><i class="sw" style="background:${col(a)}"></i>${nm(a)}</span></th>` + M.map(b=>{ if(a===b) return `<td class="num" style="color:var(--muted)">–</td>`; const v = D.agreement[`${a}|${b}`] ?? D.agreement[`${b}|${a}`]; return `<td class="num" style="background:${shade(v)};color:${v>0.75?'#fff':'var(--ink)'};border-bottom:2px solid var(--surface)" data-tip="${esc(nm(a))} vs ${esc(nm(b))}<br>same label on <b>${pct(v)}</b>">${pct(v)}</td>`; }).join('') + `</tr>`; });
+  document.getElementById('agree').innerHTML = h + `</table>`;
+})();
+
+// ---- case explorer
+const sliceSel = document.getElementById('f-slice');
+[...new Set(D.cases.map(c=>'domain:'+c.domain))].sort().concat([...new Set(D.cases.flatMap(c=>c.flags.map(f=>'flag:'+f)))].sort()).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k.replace('domain:','Domain: ').replace('flag:','Flag: '); sliceSel.appendChild(o); });
+const CLM = M.includes('clm-mlx-bf16') ? 'clm-mlx-bf16' : 'clm-mlx-q8';
+const REAL = M.filter(m=>m!=='clm-raw-q8' && D.cases[0].results[m]);  // models with published per-case answers
+function goldProb(c, r){ return r.probs ? (r.probs[c.gold] ?? 0) : null; }
+function optLabel(c, k){ if(c.type==='score') return `${k}: ${c.question.criteria[+k]}`; if(c.type==='choice') return k; return k; }
+function renderCases(){
+  const ft = document.getElementById('f-type').value, fd = document.getElementById('f-diff').value, fs = sliceSel.value, fv = document.getElementById('f-view').value, q = document.getElementById('f-q').value.toLowerCase();
+  const list = D.cases.filter(c=>{
+    if(ft && c.type!==ft) return false; if(fd && c.difficulty!==fd) return false;
+    if(fs){ const [a,b]=fs.split(':'); if(a==='domain' && c.domain!==b) return false; if(a==='flag' && !c.flags.includes(b)) return false; }
+    const R = c.results;
+    if(fv==='disagree' && new Set(REAL.map(m=>R[m].label)).size===1) return false;
+    if(fv==='allwrong' && REAL.some(m=>R[m].correct)) return false;
+    if(fv==='clmonly' && !(R[CLM].correct && REAL.filter(m=>!m.startsWith('clm')).every(m=>!R[m].correct))) return false;
+    if(fv==='confwrong' && !REAL.some(m=>!R[m].correct && R[m].probs && Math.max(...Object.values(R[m].probs))>=0.8)) return false;
+    if(q && !(JSON.stringify(c.state)+c.question.instructions).toLowerCase().includes(q)) return false;
+    return true; });
+  document.getElementById('f-count').textContent = `${list.length} of ${D.cases.length}`;
+  document.getElementById('cases').innerHTML = list.map(c=>{
+    const chips = M.filter(m=>c.results[m]).map(m=>{ const r = c.results[m]; const gp = goldProb(c,r); return `<span class="chip" title="${esc(nm(m))}"><i class="sw" style="background:${col(m)}"></i>${r.error?'<span class="no">error</span>':(r.correct?'<span class="ok" aria-label="correct">✓</span>':'<span class="no" aria-label="wrong">✗</span>')} ${esc(r.label??'–')}${gp!=null?` <span style="color:var(--muted)">${Math.round(gp*100)}%</span>`:''}</span>`; }).join('');
+    const opts = c.type==='noul' ? ['false','true'] : c.type==='choice' ? Object.keys(c.question.criteria) : c.question.criteria.map((_,i)=>String(i));
+    const dists = M.filter(m=>c.results[m]).map(m=>{ const r=c.results[m]; if(!r.probs) return ''; return `<div style="margin:10px 0 4px;display:flex;gap:6px;align-items:center;font-size:13px"><i class="sw" style="background:${col(m)}"></i><b>${nm(m)}</b>${r.expected_level!=null?` <span class="meta">expected level ${r.expected_level.toFixed(2)}</span>`:''} <span class="meta">${r.seconds!=null?ms(r.seconds*1000):''}</span></div><div class="dist">${opts.map(k=>`<span class="qlabel" title="${esc(optLabel(c,k))}">${k===c.gold?'<b>'+esc(k)+' ★</b>':esc(k)}</span><span class="bar"><i style="width:${(100*(r.probs[k]||0)).toFixed(1)}%;background:${col(m)}"></i></span>`).join('')}</div>`; }).join('');
+    const crit = c.type==='noul' ? '' : `<div class="meta" style="margin-top:6px">Options: ${c.type==='choice'?Object.entries(c.question.criteria).map(([k,v])=>`<b>${esc(k)}</b> = ${esc(v)}`).join(' · '):c.question.criteria.map((v,i)=>`<b>${i}</b> = ${esc(v)}`).join(' · ')}</div>`;
+    return `<details class="case"><summary><div><span class="pill">${c.id}</span><br><span class="meta">${c.type}</span></div><div><div>${esc(c.question.instructions)}</div><div class="meta">gold: <b style="color:var(--ink)">${esc(c.gold)}</b> · ${c.difficulty} · ${c.domain}${c.flags.length?' · '+c.flags.join(', '):''}</div><div class="chips">${chips}</div></div></summary><div style="padding:10px 0 0 74px" class="casebody"><div class="state">${esc(typeof c.state==='string'?c.state:JSON.stringify(c.state,null,1))}</div>${crit}${dists}</div></details>`; }).join('') || '<p class="sub">No cases match.</p>';
+}
+['f-type','f-diff','f-slice','f-view','f-q'].forEach(id=>document.getElementById(id).addEventListener('input', renderCases));
+renderCases();
+
+document.getElementById('method').innerHTML = D.method;
+// ---- ports and variants
+(function(){ const V = D.variants || []; if(!V.length) return;
+  document.getElementById('variants').innerHTML = `<tr><th>Build</th><th>Compared with</th><th class="num">Same answer</th><th class="num">Max prob. diff</th><th class="num">Accuracy</th><th class="num">p50</th><th class="num">Peak memory</th><th>Verdict</th></tr>` +
+  V.map(v=>`<tr><td>${esc(v.name)}</td><td>${esc(v.ref)}</td><td class="num">${v.same}/${v.n}</td><td class="num">${v.maxdiff==null?'–':v.maxdiff.toFixed(4)}</td><td class="num">${pct(v.acc)}</td><td class="num">${ms(v.p50)}</td><td class="num">${v.peak?v.peak.toFixed(1)+' GB':'–'}</td><td>${v.ok?'<span class="ok">✓</span> ':'<span class="no">✗</span> '}${esc(v.verdict)}</td></tr>`).join(''); })();
+
+
+// ---- live test (talks to serve.py on the same origin)
+(function(){
+  const $ = id => document.getElementById(id);
+  const LIVE = [["clm-mlx-q8","clm"],["laya-typed-decisions","laya-typed-decisions"],["laya-english","laya-english"]];
+  $('l-models').innerHTML = LIVE.map(([m,k])=>`<label style="display:inline-flex;gap:6px;align-items:center;margin:0"><input type="checkbox" value="${k}" checked><i class="sw" style="background:${col(m)}"></i>${nm(m)}</label>`).join('');
+  D.cases.forEach(c=>{ const o=document.createElement('option'); o.value=c.id; o.textContent=`${c.id} · ${c.type} · ${c.question.instructions.slice(0,60)}`; $('l-case').appendChild(o); });
+  function critUI(){ const t=$('l-type').value; $('l-crit-wrap').style.display = t==='noul'?'none':'block';
+    $('l-crit-hint').textContent = t==='choice' ? '(one per line: key: description)' : '(one level per line, lowest first)'; }
+  $('l-type').addEventListener('input', critUI);
+  $('l-case').addEventListener('input', ()=>{ const c = D.cases.find(x=>x.id===$('l-case').value); if(!c) return;
+    $('l-type').value=c.type; $('l-state').value = typeof c.state==='string'?c.state:JSON.stringify(c.state,null,1); $('l-ins').value=c.question.instructions;
+    $('l-crit').value = c.type==='choice' ? Object.entries(c.question.criteria).map(([k,v])=>`${k}: ${v}`).join('\n') : c.type==='score' ? c.question.criteria.join('\n') : '';
+    critUI(); $('l-msg').textContent = `gold answer for ${c.id}: ${c.gold}`; });
+  function question(){ const t=$('l-type').value, q={type:t, instructions:$('l-ins').value.trim()}; const lines=$('l-crit').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if(t==='choice'){ q.criteria={}; lines.forEach(l=>{ const i=l.indexOf(':'); if(i>0) q.criteria[l.slice(0,i).trim()]=l.slice(i+1).trim(); else q.criteria[l]=''; }); }
+    if(t==='score') q.criteria=lines; return q; }
+  function state(){ const s=$('l-state').value.trim(); try { const j=JSON.parse(s); return j; } catch(e){ return s; } }
+  const isServed = location.protocol.startsWith('http');
+  if(!isServed){ $('l-run').disabled=true; $('l-msg').textContent='Opened as a file: start serve.py to enable live answers.'; }
+  else fetch('/api/health').then(r=>r.json()).then(h=>{ $('live-status').textContent = `Local server is up. Loaded: ${h.loaded.join(', ')||'models load on first question'}.`; }).catch(()=>{});
+  $('l-run').addEventListener('click', async ()=>{
+    const models=[...$('l-models').querySelectorAll('input:checked')].map(i=>i.value), q=question();
+    if(q.type!=='noul' && (!q.criteria || !Object.keys(q.criteria).length)){ $('l-msg').textContent='Add at least two options.'; return; }
+    $('l-run').disabled=true; $('l-msg').textContent='Asking… (the first CLM question loads the 8 GB encoder, about 10 s)'; $('l-out').innerHTML='';
+    try {
+      const r = await fetch('/api/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({state: state(), question: q, models})});
+      const j = await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+      const opts = q.type==='noul' ? ['false','true'] : q.type==='choice' ? Object.keys(q.criteria) : q.criteria.map((_,i)=>String(i));
+      $('l-out').innerHTML = Object.entries(j.results).map(([k,res])=>{ const m = (LIVE.find(x=>x[1]===k)||[k])[0];
+        if(res.error) return `<div class="card"><b>${nm(m)}</b><p class="no">${esc(res.error)}</p></div>`;
+        const p = res.probs||{}; const top = res.label;
+        return `<div class="card"><div style="display:flex;gap:6px;align-items:center"><i class="sw" style="background:${col(m)}"></i><b>${nm(m)}</b><span class="meta" style="margin-left:auto">${ms(res.seconds*1000)}</span></div>
+          <div style="font-size:22px;font-weight:650;margin:6px 0">${esc(top)}${q.type==='score'&&res.expected_level!=null?` <span class="meta">(expected ${res.expected_level.toFixed(2)})</span>`:''}</div>
+          <div class="dist">${opts.map(o=>`<span class="qlabel">${esc(o)}</span><span class="bar" data-tip="${esc(o)}: ${pct(p[o]||0)}"><i style="width:${(100*(p[o]||0)).toFixed(1)}%;background:${col(m)}"></i></span>`).join('')}</div></div>`; }).join('');
+      $('l-msg').textContent = '';
+    } catch(e){ $('l-msg').textContent = 'Error: '+e.message; }
+    $('l-run').disabled=false;
+  });
+  critUI();
+})();
+document.addEventListener('mouseover', e=>{ const t = e.target.closest('[data-tip]'); if(t) showTip(e, t.dataset.tip); });
+document.addEventListener('mousemove', e=>{ if(tip.style.display==='block'){ const t = e.target.closest('[data-tip]'); if(t) showTip(e, t.dataset.tip); else hideTip(); } });
+document.addEventListener('mouseout', e=>{ if(!e.relatedTarget || !e.relatedTarget.closest('[data-tip]')) hideTip(); });
+</script>
+</body>
+</html>

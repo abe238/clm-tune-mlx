@@ -1,0 +1,8 @@
+{
+ "tag": "q4",
+ "path": "mlx-community/Qwen3-8B-4bit",
+ "load_seconds": 0.49866509437561035,
+ "peak_gib": 4.8411047756671906,
+ "head": "clm_v0.1-8B.pt",
+ "n_texts": 242
+}

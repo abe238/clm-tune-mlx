@@ -1,0 +1,18 @@
+{
+ "tag": "bf16",
+ "encoder": "Qwen/Qwen3-8B",
+ "load_s": 4.902544975280762,
+ "one_question_options_cached": {
+  "p50_ms": 94.01512145996094,
+  "p95_ms": 98.80185127258301
+ },
+ "one_question_cold": {
+  "p50_ms": 190.46998023986816,
+  "p95_ms": 195.93071937561035
+ },
+ "eight_questions_one_state": {
+  "p50_ms": 191.43390655517578,
+  "questions_per_s": 41.789880089472085
+ },
+ "peak_gib": 15.418970376253128
+}

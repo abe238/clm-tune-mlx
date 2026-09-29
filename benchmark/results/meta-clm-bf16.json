@@ -1,0 +1,1 @@
+{"tag": "bf16", "path": "Qwen/Qwen3-8B", "load_seconds": 3.121561050415039, "peak_gib": 15.50468074530363, "head": "clm_v0.1-8B.pt", "n_texts": 242}

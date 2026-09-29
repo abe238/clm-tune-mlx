@@ -1,0 +1,29 @@
+{
+ "train_steps": 1306,
+ "encode_minutes": 8.33621269861857,
+ "released_head_test_acc": 0.22,
+ "finetuned": [
+  {
+   "seed": 0,
+   "val_acc": 0.4351145029067993,
+   "epochs": 18,
+   "train_seconds": 38.158695936203,
+   "test_acc": 0.49333333333333335
+  },
+  {
+   "seed": 1,
+   "val_acc": 0.442748099565506,
+   "epochs": 20,
+   "train_seconds": 42.03232192993164,
+   "test_acc": 0.49333333333333335
+  },
+  {
+   "seed": 2,
+   "val_acc": 0.4351145029067993,
+   "epochs": 19,
+   "train_seconds": 40.25280809402466,
+   "test_acc": 0.5133333333333333
+  }
+ ],
+ "finetuned_test_mean": 0.5
+}
