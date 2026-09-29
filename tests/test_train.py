@@ -7,6 +7,9 @@ import pytest
 mx = pytest.importorskip("mlx.core")
 from mlx.utils import tree_flatten
 
+mx.set_default_device(mx.cpu)                      # CPU only: a GPU job may be running
+assert mx.default_device() == mx.cpu
+
 from clm_tune_mlx.engine import Head, Heads
 from clm_tune_mlx.train import bm25_pick, evaluate_heads, report_card, train_heads
 
@@ -110,3 +113,54 @@ def test_fresh_init_seeded(init):
     r, _ = train_heads(x, protos, y, seed=1, init=init, epochs=1, lr=0.0)
     assert np.array_equal(w(a), w(b)) and not np.allclose(w(a), w(c)) and not np.allclose(w(a), w(r))
     assert a.scale == pytest.approx(r.scale)
+
+
+def _shifted(n=40, shift=3.0, seed=0):
+    x, protos, y = data(n, seed)
+    return x + shift, protos + shift, y
+
+
+def test_center_auto_released_noop_fresh_on(init):
+    x, protos, y = data()
+    h, m = train_heads(x, protos, y, init=init, epochs=2)
+    assert h.means == {} and not m["centered"]
+    ho, mo = train_heads(x, protos, y, init=init, epochs=2, center=False, init_mode="fresh")
+    assert ho.means == {} and not mo["centered"]
+    hf, mf = train_heads(x, protos, y, init=init, epochs=2, init_mode="fresh")
+    assert set(hf.means) == {"state", "action"} and mf["centered"]
+
+
+def test_center_means_from_train_only(init):
+    x, protos, y = _shifted()
+    # test set with a wildly different mean: must not leak into the stored means
+    tx = x + 50.0
+    h, _ = train_heads(x, protos, y, init=init, epochs=1, center=True, val_frac=0.25, rng=np.random.default_rng(7),
+                       test=(tx, protos, y))
+    perm = np.random.default_rng(7).permutation(len(y))
+    trn = perm[max(1, int(len(y) * 0.25)):]
+    assert np.allclose(h.means["state"], x[trn].mean(0), atol=1e-5)
+    assert not np.allclose(h.means["state"], x.mean(0), atol=1e-3)     # not the full-data mean (val excluded)
+    assert np.allclose(h.means["action"], protos.mean(0), atol=1e-5)
+    assert np.abs(h.means["state"] - tx.mean(0)).min() > 10
+
+
+def test_center_roundtrip_and_old_file_compat(init, tmp_path):
+    x, protos, y = _shifted()
+    out = str(tmp_path / "c.safetensors")
+    h, _ = train_heads(x, protos, y, init=init, epochs=5, center=True, out=out)
+    assert json.load(open(out[:-len(".safetensors")] + ".json"))["centered"] is True
+    h2 = Heads(out)
+    logits = lambda hh: np.array(hh.project(mx.array(x), "state") @ hh.project(mx.array(protos), "action").T)
+    assert np.array_equal(logits(h), logits(h2)) or np.allclose(logits(h), logits(h2), atol=1e-6)
+    assert evaluate_heads(h, x, protos, y) == evaluate_heads(h2, x, protos, y)
+    # uncentered "old" file: no center.* arrays, no `centered` key: behaves exactly as before
+    old = str(tmp_path / "old.safetensors")
+    h3, _ = train_heads(x, protos, y, init=init, epochs=5, center=False, out=old)
+    w = mx.load(old)
+    assert not any(k.startswith("center.") for k in w)
+    meta = json.load(open(old[:-len(".safetensors")] + ".json"))
+    meta.pop("centered")
+    json.dump(meta, open(old[:-len(".safetensors")] + ".json", "w"))
+    h4 = Heads(old)
+    assert h4.means == {}
+    assert np.array_equal(logits(h3), logits(h4))

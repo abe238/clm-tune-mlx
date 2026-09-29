@@ -87,8 +87,13 @@ class Heads:
             head.load_weights([(k[len(side) + 1:], v) for k, v in w.items() if k.startswith(side + ".")], strict=True)
         self.scale = float(min(np.exp(m["logit_scale"]), 100.0))
         self.path, self.meta = checkpoint, m
+        # optional input centering (train_heads(center=True)); absent in older files = no-op
+        self.means = {s: np.asarray(w[f"center.{s}"]) for s in ("state", "action") if f"center.{s}" in w}
 
     def project(self, x, side: str):
+        if side in self.means:                                   # subtract the train mean, then L2-renormalise
+            x = x - mx.array(self.means[side])
+            x = x / mx.maximum(mx.linalg.norm(x, axis=-1, keepdims=True), 1e-12)
         z = (self.state if side == "state" else self.action)(x)
         return z / mx.maximum(mx.linalg.norm(z, axis=-1, keepdims=True), 1e-12)
 

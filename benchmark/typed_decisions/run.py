@@ -2,6 +2,8 @@
 Evaluation only: never ship these heads. Val = 10% of train cases (grouped by case id) picks the kept epoch."""
 import json, statistics as st
 import numpy as np
+import mlx.core as mx
+mx.set_default_device(mx.cpu); assert mx.default_device() == mx.cpu   # CPU only: a GPU job may be running
 from collections import Counter
 from clm_tune_mlx.engine import default_head
 from clm_tune_mlx.train import train_heads, evaluate_heads
@@ -19,8 +21,10 @@ maj_q = {k: Counter(lab[n] for n in tri if qn[n] == k).most_common(1)[0][0] for 
 majority_per_q = float(np.mean([lab[n] == maj_q[qn[n]] for n in tei]))   # train-majority label per question name
 CK = default_head()
 CFG = {"A0": dict(epochs=60, patience=5),
-       "A4": dict(epochs=80, patience=20, schedule="warmup_cosine", init_mode="fresh"),
-       "A1": dict(epochs=80, patience=20), "A2": dict(epochs=80, patience=20, schedule="warmup_cosine")}
+       "A4": dict(epochs=80, patience=20, schedule="warmup_cosine", init_mode="fresh", center=False),   # existing row was uncentered (pre-`center`)
+       "A1": dict(epochs=80, patience=20), "A2": dict(epochs=80, patience=20, schedule="warmup_cosine"),
+       "A4c": dict(epochs=80, patience=20, schedule="warmup_cosine", init_mode="fresh", center=True),
+       "A1fc": dict(epochs=80, patience=20, schedule="constant", init_mode="fresh", center=True)}
 import os
 old = json.load(open("results.json")) if os.path.exists("results.json") else {}   # keep existing rows, only run missing configs
 
@@ -60,5 +64,5 @@ for n in CFG:
 ref = ["", f"Choice-only: {len(tri)} train / {len(tei)} test questions. Baselines on our choice-only test: global majority label `{top}` {majority_test*100:.1f}%; per-question-name majority {majority_per_q*100:.1f}%; uniform chance {np.mean([1/len(opts[n]) for n in tei])*100:.1f}%.", "",
        "Reference points (from the study/card, NOT directly comparable): study CLM heads Qwen3-8B 75.3% (PyTorch, 80 epochs); majority class 48.4%; teacher self-agreement ceiling 73.5%.",
        "", "Caveat: the study scored ALL question types (noul, choice, score); this run scores choice questions only. Gold = `gold[q].label`. Evaluation only: weights trained on this data must not be shipped (Apache-2.0 data, eval use only per spec)."]
-open("results.md", "w").write("# typed-decisions (choice-only) with A0, A4, A1, A2\n\n" + "\n".join(L + ref) + "\n")
+open("results.md", "w").write("# typed-decisions (choice-only) with A0, A4, A1, A2, A4c, A1fc\n\n" + "\n".join(L + ref) + "\n")
 print("\n".join(L + ref))

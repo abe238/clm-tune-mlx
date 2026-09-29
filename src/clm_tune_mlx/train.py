@@ -78,16 +78,27 @@ def _evaluate(pair, x, opts, mask, y, chunk=1024):
     return {"acc": hit1 / len(y), "top3": hit3 / len(y)}
 
 
+def _center(v, mean):
+    """Subtract `mean` (None = no-op) and L2-renormalise rows (numpy)."""
+    if mean is None:
+        return v
+    v = v - mean
+    return v / np.maximum(np.linalg.norm(v, axis=-1, keepdims=True), 1e-12)
+
+
 def evaluate_heads(heads: Heads, x, options, y) -> dict:
-    """Accuracy and top-3 of `heads` on precomputed embeddings (same option forms as train_heads)."""
+    """Accuracy and top-3 of `heads` on precomputed embeddings (same option forms as train_heads).
+    Applies the heads' saved centering means, if any."""
     o, m = _pad(options)
-    return _evaluate(_Pair(heads), np.asarray(x, np.float32), o, m, np.asarray(y))
+    x = _center(np.asarray(x, np.float32), heads.means.get("state"))
+    return _evaluate(_Pair(heads), x, _center(o, heads.means.get("action")), m, np.asarray(y))
 
 
 def save_heads(path: str, heads: Heads, log_scale: float | None = None) -> None:
     """Write `path` (.safetensors) plus the .json sidecar next to it, exactly the layout engine.Heads loads."""
     arrays = {f"{side}.{k}": v for side, h in (("state", heads.state), ("action", heads.action)) for k, v in tree_flatten(h.parameters())}
-    meta = dict(heads.meta, logit_scale=float(math.log(heads.scale) if log_scale is None else log_scale))
+    arrays.update({f"center.{s}": mx.array(m) for s, m in heads.means.items()})
+    meta = dict(heads.meta, logit_scale=float(math.log(heads.scale) if log_scale is None else log_scale), centered=bool(heads.means))
     mx.save_safetensors(path, arrays)
     json.dump(meta, open(path[: -len(".safetensors")] + ".json", "w"))
 
@@ -95,7 +106,7 @@ def save_heads(path: str, heads: Heads, log_scale: float | None = None) -> None:
 def train_heads(x, options, y, *, val_frac: float = 0.1, init: str | None = None, epochs: int = 80, lr: float = 5e-4,
                 batch: int = 256, patience: int = 20, seed: int = 0, rng: np.random.Generator | None = None,
                 shuffle: bool = False, out: str | None = None, schedule: str = "constant", min_epochs_before_stop: int = 0,
-                init_mode: str = "released", test: tuple | None = None) -> tuple[Heads, dict]:
+                init_mode: str = "released", test: tuple | None = None, center: bool | None = None) -> tuple[Heads, dict]:
     """Train state+action heads from precomputed embeddings.
 
     x [N,D] state vectors; y [N] option indices; options [K,D] (one list for everyone) or [N,K,D] / a list of
@@ -107,6 +118,9 @@ def train_heads(x, options, y, *, val_frac: float = 0.1, init: str | None = None
     with warmup_cosine no early stop fires during warm-up. `min_epochs_before_stop`: no early stop before that many epochs.
     `init_mode`: "released" (warm start from `init`) or "fresh" (same architecture, random weights seeded by `seed`,
     logit scale as the released head's). `test` = (x, options, y): also report last-epoch accuracy on it.
+    `center`: subtract the state mean (train portion only, after the val split) and the option mean, then L2-renormalise,
+    before training, validation and test; the means ride along on `heads.means` and are saved/applied at inference.
+    None = auto: True for fresh heads, False for released ones (centering hurts released heads).
     """
     if schedule not in ("constant", "warmup_cosine") or init_mode not in ("released", "fresh"):
         raise ValueError("schedule: constant|warmup_cosine; init_mode: released|fresh")
@@ -127,6 +141,15 @@ def train_heads(x, options, y, *, val_frac: float = 0.1, init: str | None = None
     val, trn = perm[:nv], perm[nv:]
     if len(trn) == 0:
         raise ValueError("no training examples left after the validation split")
+    if center is None:
+        center = init_mode == "fresh"
+    heads.means = {}
+    if center:                                                   # means from the TRAIN rows only
+        orows = o if o.ndim == 2 else o[trn][mask[trn]]
+        heads.means = {"state": x[trn].mean(0), "action": orows.reshape(-1, o.shape[-1]).mean(0)}
+        x, o = _center(x, heads.means["state"]), _center(o, heads.means["action"])
+        if test is not None:
+            test = (_center(np.asarray(test[0], np.float32), heads.means["state"]), test[1], test[2])
     spe = math.ceil(len(trn) / batch)
     warm = max(1, round(0.1 * epochs * spe))
     sched = lr if schedule == "constant" else optim.join_schedules(
@@ -166,11 +189,12 @@ def train_heads(x, options, y, *, val_frac: float = 0.1, init: str | None = None
     last = None
     if test is not None:
         to, tm = _pad(test[1])
+        to = _center(to, heads.means.get("action"))
         last = _evaluate(pair, np.asarray(test[0], np.float32), to, tm, np.asarray(test[2]))["acc"]
     pair.update(best_params)
     heads.scale = float(min(math.exp(float(pair.log_scale)), 100.0))
     metrics = {"train_examples": len(trn), "val_examples": nv, "val_acc": best, "epochs": ep + 1,
-               "loss_history": history, "val_acc_history": val_hist, "kept_epoch": kept, "last_epoch_test_acc": last,
+               "loss_history": history, "val_acc_history": val_hist, "kept_epoch": kept, "centered": bool(center), "last_epoch_test_acc": last,
                "train_seconds": time.time() - t0}
     if out:
         save_heads(out, heads, float(pair.log_scale))
@@ -291,6 +315,8 @@ def main(argv=None):
     ap.add_argument("--schedule", choices=["constant", "warmup_cosine"], default="constant")
     ap.add_argument("--min-epochs-before-stop", type=int, default=0)
     ap.add_argument("--init-mode", choices=["released", "fresh"], default="released", help="fresh = random heads, same architecture")
+    ap.add_argument("--center", action=argparse.BooleanOptionalAction, default=None,
+                    help="center inputs on the train mean (default: auto = on for fresh heads, off for released)")
     ap.add_argument("--init", default=None, help="heads to warm-start from (default: the released head)")
     ap.add_argument("--encoder", default=None)
     ap.add_argument("--cache", default=None, help="embedding cache .npz (default: <data>.npz)")
@@ -306,7 +332,7 @@ def main(argv=None):
     heads, m = train_heads(train["x"], train["options"], train["y"], val_frac=a.val_frac, init=a.init, epochs=a.epochs,
                            lr=a.lr, batch=a.batch, patience=a.patience, seed=a.seed, rng=rng, out=a.out,
                            schedule=a.schedule, min_epochs_before_stop=a.min_epochs_before_stop, init_mode=a.init_mode,
-                           test=(test["x"], test["options"], test["y"]))
+                           center=a.center, test=(test["x"], test["options"], test["y"]))
     zero = evaluate_heads(Heads(a.init or default_head()), test["x"], test["options"], test["y"])
     rep = report_card(train, test, evaluate_heads(heads, test["x"], test["options"], test["y"]), zero)
     rep["training"] = {k: v for k, v in m.items() if k not in ("loss_history", "val_acc_history")}
