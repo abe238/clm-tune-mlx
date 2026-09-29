@@ -32,7 +32,9 @@
   "test_acc_max": 0.8516233766233766,
   "encoder": "mlx-community/Qwen3.8-27B-4bit",
   "load_seconds": 5.262776851654053,
-  "embed_seconds": 933.7888538837433
+  "embed_seconds": 933.7888538837433,
+  "peak_memory_footprint_bytes": 54584996944,
+  "max_rss_bytes": 5002608640
  },
  "qwen3-4b-8bit": {
   "dim": 2560,
