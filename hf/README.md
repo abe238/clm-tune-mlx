@@ -57,7 +57,7 @@ What it isn't: tested against every alternative. laya-mlx never got a training p
 
 ## Get it: the MLX build
 
-[clm-tune-mlx](https://github.com/abe238/clm-tune-mlx) runs CLM-8B on Apple Silicon entirely in MLX: the Qwen3-8B encoder and the released heads (weights unchanged, converted to safetensors), no PyTorch needed. 118 of 120 decisions identical to the PyTorch original (bf16); the MLX heads match the PyTorch heads on 120 of 120. What it adds on top: head training on a Mac, a micro-batching typed-decision server, and the benchmarks on this card. Build on it.
+[clm-tune-mlx](https://github.com/abe238/clm-tune-mlx) runs CLM-8B on Apple Silicon entirely in MLX: the Qwen3-8B encoder and the released heads (weights unchanged, converted to safetensors), no PyTorch needed. 118 of 120 decisions identical to the PyTorch original (bf16); the MLX heads match the PyTorch heads on 120 of 120. What it adds on top: head training on a Mac in pure MLX with one command (`clm-tune-mlx-train`, no PyTorch; on Banking77 it reaches 83.9% vs 83.1% for the PyTorch recipe, 2.6x faster), a micro-batching typed-decision server, and the benchmarks on this card. Build on it.
 
 Other MLX conversions appeared the same week, each with its own parity checks: [czl/CLM-v0.1-8B-MLX](https://huggingface.co/czl/CLM-v0.1-8B-MLX) (bf16 to 4-bit) and [RealityCat/CLM-v0.1-8B-MLX-8bit](https://huggingface.co/RealityCat/CLM-v0.1-8B-MLX-8bit). This package was renamed from `clm_mlx` to `clm_tune_mlx` so it installs alongside RealityCat's `clm_mlx`.
 

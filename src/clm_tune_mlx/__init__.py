@@ -3,4 +3,4 @@ from .embedder import MLXEmbedder, load_engine
 from .engine import MLXEngine
 
 __all__ = ["MLXEmbedder", "MLXEngine", "load_engine"]
-__version__ = "0.3.0"
+__version__ = "0.4.0"

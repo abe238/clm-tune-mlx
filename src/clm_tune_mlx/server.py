@@ -96,7 +96,8 @@ def make_handler(batcher: Batcher):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="CLM on MLX behind a /v1/systemone-style typed-decision API, with micro-batching.")
     ap.add_argument("--encoder", default=None, help="MLX encoder (default mlx-community/Qwen3-8B-8bit; Qwen/Qwen3-8B for bf16)")
-    ap.add_argument("--checkpoint", default=None, help="CLM head .pt (default: download the released head)")
+    ap.add_argument("--checkpoint", "--heads", dest="checkpoint", default=None,
+                    help="CLM heads: .safetensors (+ .json sidecar, as written by clm-tune-mlx-train) or upstream .pt (default: download the released head)")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8700)
     ap.add_argument("--max-batch", type=int, default=32)

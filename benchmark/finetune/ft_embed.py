@@ -1,7 +1,7 @@
 """Encode Banking77 once with the MLX encoder (the only 8B work; training never touches it)."""
 import json, os, sys, time, hashlib
 import numpy as np
-from clm.schema import build_pairs
+from clm_tune_mlx.schema import build_pairs
 from clm_tune_mlx import MLXEmbedder
 enc = sys.argv[1] if len(sys.argv) > 1 else "mlx-community/Qwen3-8B-8bit"
 d = json.load(open("banking77.json"))

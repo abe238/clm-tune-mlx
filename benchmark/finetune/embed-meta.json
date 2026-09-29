@@ -1,6 +1,6 @@
 {
  "encoder": "mlx-community/Qwen3-8B-8bit",
- "embed_seconds": 211.4686918258667,
+ "embed_seconds": 209.65931510925293,
  "n_train": 10003,
  "n_test": 3080,
  "labels": [

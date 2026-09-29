@@ -86,7 +86,7 @@ class Heads:
         for side, head in (("state", self.state), ("action", self.action)):
             head.load_weights([(k[len(side) + 1:], v) for k, v in w.items() if k.startswith(side + ".")], strict=True)
         self.scale = float(min(np.exp(m["logit_scale"]), 100.0))
-        self.path = checkpoint
+        self.path, self.meta = checkpoint, m
 
     def project(self, x, side: str):
         z = (self.state if side == "state" else self.action)(x)

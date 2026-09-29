@@ -56,7 +56,7 @@ Ours was fastest in 10 of 12 paired timings; margins are small (3 to 15%). Accur
 
 ```bash
 pip install git+https://github.com/abe238/clm-tune-mlx      # mlx-lm + numpy only, no PyTorch (~320 MB env)
-pip install "clm-tune-mlx[torch] @ git+https://github.com/abe238/clm-tune-mlx"  # adds PyTorch, for training and .pt heads
+pip install "clm-tune-mlx[torch] @ git+https://github.com/abe238/clm-tune-mlx"  # adds PyTorch, only for upstream .pt heads and the reference engine
 ```
 
 ```python
@@ -70,21 +70,20 @@ out = engine.answer(
 print(out["answers"])
 ```
 
-**Train your own heads.** Encode your examples once, train in seconds, load the result like any CLM checkpoint:
+**Train your own heads.** Training is pure MLX (`mlx.nn` + `mlx.optimizers`), no PyTorch. It follows the recipe of the PyTorch trainer in `benchmark/finetune/ft_train.py`: warm start from the released head, normalized state and action projections, trained logit scale (capped at 100), cross-entropy over the options, AdamW, early stopping on a validation split. The encoder runs once per example and is cached; training itself uses the cached vectors.
 
 ```bash
-cd benchmark/finetune
-python prepare_banking77.py                          # or your own (message, route) pairs
-python ft_embed.py                                   # one-time MLX encoding
-CLM_CKPT=/path/to/CLM_v0.1-8B.pt python ft_train.py  # train, then score the held-out test
+# data.jsonl: one {"state": "...", "options": ["a", "b", ...], "label": 0 or "a"} per line
+clm-tune-mlx-train data.jsonl --out heads.safetensors --test-frac 0.2 --val-frac 0.1
+clm-tune-mlx-serve --heads heads.safetensors
 ```
 
-`load_engine(checkpoint="clm-banking77-heads.pt")` serves the trained heads (converted to safetensors once, then PyTorch isn't touched). For per-request option lists, `benchmark/agentic/web_ft.py` is the template.
+It prints and saves (`heads.report.json`) a report card: accuracy on a held-out test split against a majority-class baseline and a BM25 baseline over the option text. If training does not beat the better baseline, the report says "No gain over baselines". From Python, `clm_tune_mlx.train.train_heads` takes precomputed embeddings (one shared option list or a list per example). `benchmark/finetune/ft_train_mlx.py` reruns the Banking77 experiment with it: on all 9,003 training messages the MLX trainer reaches **83.9%** on the 3,080-message test set, against 83.1% for the PyTorch trainer with the same recipe (identical validation accuracy, 0.837), and trains in 7 seconds instead of 18 on an M5 Pro. Results in `ft-results-mlx.json` next to `ft-results.json`. Heads saved by the older PyTorch trainer (`.pt`) still load; that path needs the `torch` extra.
 
 **Serve it** behind a `/v1/systemone`-style typed-decision API with micro-batching:
 
 ```bash
-clm-tune-mlx-serve --port 8700 --checkpoint your-heads.pt   # --encoder Qwen/Qwen3-8B for bf16
+clm-tune-mlx-serve --port 8700 --heads your-heads.safetensors   # --encoder Qwen/Qwen3-8B for bf16
 ```
 
 Any compatible client works by changing its base URL. Requests that arrive while the model is busy share one encoder pass. Apple Silicon, Python 3.10+.
