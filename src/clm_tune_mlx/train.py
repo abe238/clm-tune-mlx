@@ -92,28 +92,47 @@ def save_heads(path: str, heads: Heads, log_scale: float | None = None) -> None:
     json.dump(meta, open(path[: -len(".safetensors")] + ".json", "w"))
 
 
-def train_heads(x, options, y, *, val_frac: float = 0.1, init: str | None = None, epochs: int = 60, lr: float = 5e-4,
-                batch: int = 256, patience: int = 5, seed: int = 0, rng: np.random.Generator | None = None,
-                shuffle: bool = False, out: str | None = None) -> tuple[Heads, dict]:
+def train_heads(x, options, y, *, val_frac: float = 0.1, init: str | None = None, epochs: int = 80, lr: float = 5e-4,
+                batch: int = 256, patience: int = 20, seed: int = 0, rng: np.random.Generator | None = None,
+                shuffle: bool = False, out: str | None = None, schedule: str = "constant", min_epochs_before_stop: int = 0,
+                init_mode: str = "released", test: tuple | None = None) -> tuple[Heads, dict]:
     """Train state+action heads from precomputed embeddings.
 
     x [N,D] state vectors; y [N] option indices; options [K,D] (one list for everyone) or [N,K,D] / a list of
     [k_i,D] arrays (a list per example; y indexes into that example's list). `init` is a heads .safetensors/.pt
     (default: the released head). `val_frac` of the data (shuffled with `rng`, default seed) picks the best
     epoch (0 disables it and keeps the last epoch); stop after `patience` epochs without a strict improvement. Returns (heads at the best epoch, metrics).
+
+    `schedule`: "constant" lr, or "warmup_cosine" (linear warm-up over the first 10% of steps, cosine decay to 0);
+    with warmup_cosine no early stop fires during warm-up. `min_epochs_before_stop`: no early stop before that many epochs.
+    `init_mode`: "released" (warm start from `init`) or "fresh" (same architecture, random weights seeded by `seed`,
+    logit scale as the released head's). `test` = (x, options, y): also report last-epoch accuracy on it.
     """
+    if schedule not in ("constant", "warmup_cosine") or init_mode not in ("released", "fresh"):
+        raise ValueError("schedule: constant|warmup_cosine; init_mode: released|fresh")
     mx.random.seed(seed)
     rng = rng or np.random.default_rng(seed)
     x, y = np.asarray(x, np.float32), np.asarray(y)
     o, mask = _pad(options)
     heads = Heads(init or default_head())
+    if init_mode == "fresh":
+        from .engine import Head
+        heads.meta = dict(heads.meta, hidden=x.shape[-1])       # fresh heads may target another encoder width
+        kw = {k: heads.meta[k] for k in ("hidden", "width", "depth", "proj", "layernorm", "residual")}
+        heads.state, heads.action = Head(**kw), Head(**kw)      # mx.random is seeded above: reproducible
+        mx.eval(heads.state.parameters(), heads.action.parameters())
     pair = _Pair(heads)
     perm = rng.permutation(len(y))
     nv = max(1, int(len(y) * val_frac + 1e-9)) if val_frac > 0 else 0   # val_frac=0: no early stopping, keep the last epoch
     val, trn = perm[:nv], perm[nv:]
     if len(trn) == 0:
         raise ValueError("no training examples left after the validation split")
-    opt = optim.AdamW(learning_rate=lr, bias_correction=True)     # torch AdamW: weight_decay 0.01, eps 1e-8
+    spe = math.ceil(len(trn) / batch)
+    warm = max(1, round(0.1 * epochs * spe))
+    sched = lr if schedule == "constant" else optim.join_schedules(
+        [optim.linear_schedule(0.0, lr, warm), optim.cosine_decay(lr, max(1, epochs * spe - warm))], [warm])
+    no_stop_before = max(min_epochs_before_stop, math.ceil(warm / spe) if schedule == "warmup_cosine" else 0)
+    opt = optim.AdamW(learning_rate=sched, bias_correction=True)     # torch AdamW: weight_decay 0.01, eps 1e-8
 
     def loss_fn(p, xb, ob, mb, yb):
         return nn.losses.cross_entropy(p.logits(xb, ob, mb), yb, reduction="mean")
@@ -121,6 +140,7 @@ def train_heads(x, options, y, *, val_frac: float = 0.1, init: str | None = None
     step = nn.value_and_grad(pair, loss_fn)
     vo, vm = _take(o, mask, val)
     best, best_params, bad, history, t0 = -1.0, None, 0, [], time.time()
+    val_hist, kept = [], 0
     for ep in range(epochs):
         order = rng.permutation(trn) if shuffle else trn
         losses = []
@@ -133,19 +153,25 @@ def train_heads(x, options, y, *, val_frac: float = 0.1, init: str | None = None
             losses.append(float(loss) * len(j))
         history.append(sum(losses) / len(order))
         if nv == 0:
-            best_params = pair.parameters()
+            best_params, kept = pair.parameters(), ep + 1
             continue
         v = _evaluate(pair, x[val], vo, vm, y[val])["acc"]
+        val_hist.append(v)
         if v > best:
-            best, best_params, bad = v, pair.parameters(), 0
+            best, best_params, bad, kept = v, pair.parameters(), 0, ep + 1
         else:
             bad += 1
-            if bad >= patience:
+            if bad >= patience and ep + 1 >= no_stop_before:
                 break
+    last = None
+    if test is not None:
+        to, tm = _pad(test[1])
+        last = _evaluate(pair, np.asarray(test[0], np.float32), to, tm, np.asarray(test[2]))["acc"]
     pair.update(best_params)
     heads.scale = float(min(math.exp(float(pair.log_scale)), 100.0))
     metrics = {"train_examples": len(trn), "val_examples": nv, "val_acc": best, "epochs": ep + 1,
-               "loss_history": history, "train_seconds": time.time() - t0}
+               "loss_history": history, "val_acc_history": val_hist, "kept_epoch": kept, "last_epoch_test_acc": last,
+               "train_seconds": time.time() - t0}
     if out:
         save_heads(out, heads, float(pair.log_scale))
     return heads, metrics
@@ -257,11 +283,14 @@ def main(argv=None):
     ap.add_argument("--out", required=True, help="heads .safetensors to write (a .json sidecar is written next to it)")
     ap.add_argument("--test-frac", type=float, default=0.2)
     ap.add_argument("--val-frac", type=float, default=0.1, help="fraction of the non-test data used for early stopping")
-    ap.add_argument("--epochs", type=int, default=60)
+    ap.add_argument("--epochs", type=int, default=80)
     ap.add_argument("--lr", type=float, default=5e-4)
     ap.add_argument("--batch", type=int, default=256)
-    ap.add_argument("--patience", type=int, default=5)
+    ap.add_argument("--patience", type=int, default=20)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--schedule", choices=["constant", "warmup_cosine"], default="constant")
+    ap.add_argument("--min-epochs-before-stop", type=int, default=0)
+    ap.add_argument("--init-mode", choices=["released", "fresh"], default="released", help="fresh = random heads, same architecture")
     ap.add_argument("--init", default=None, help="heads to warm-start from (default: the released head)")
     ap.add_argument("--encoder", default=None)
     ap.add_argument("--cache", default=None, help="embedding cache .npz (default: <data>.npz)")
@@ -275,10 +304,12 @@ def main(argv=None):
     nt = max(1, int(len(perm) * a.test_frac + 1e-9))
     test, train = _slice(d, perm[:nt]), _slice(d, perm[nt:])
     heads, m = train_heads(train["x"], train["options"], train["y"], val_frac=a.val_frac, init=a.init, epochs=a.epochs,
-                           lr=a.lr, batch=a.batch, patience=a.patience, seed=a.seed, rng=rng, out=a.out)
+                           lr=a.lr, batch=a.batch, patience=a.patience, seed=a.seed, rng=rng, out=a.out,
+                           schedule=a.schedule, min_epochs_before_stop=a.min_epochs_before_stop, init_mode=a.init_mode,
+                           test=(test["x"], test["options"], test["y"]))
     zero = evaluate_heads(Heads(a.init or default_head()), test["x"], test["options"], test["y"])
     rep = report_card(train, test, evaluate_heads(heads, test["x"], test["options"], test["y"]), zero)
-    rep["training"] = {k: v for k, v in m.items() if k != "loss_history"}
+    rep["training"] = {k: v for k, v in m.items() if k not in ("loss_history", "val_acc_history")}
     path = a.report or a.out[: -len(".safetensors")] + ".report.json"
     json.dump(rep, open(path, "w"), indent=1)
     print(f"test n={rep['n_test']}  trained {rep['trained_acc']:.1%}  majority {rep['majority_class_acc']:.1%}  "

@@ -8,3 +8,6 @@ __pycache__/
 *.npz
 *.parquet
 *.env
+
+benchmark/typed_decisions/raw.jsonl
+benchmark/typed_decisions/emb.npz

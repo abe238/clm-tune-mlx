@@ -1,0 +1,83 @@
+{
+ "config": {
+  "epochs": 80,
+  "patience": 20,
+  "schedule": "warmup_cosine",
+  "init_mode": "fresh"
+ },
+ "note": "8B rows: fresh heads on the stored 8B embeddings (A4 from exp-trainer.json is the same run)",
+ "qwen3-4b-8bit": {
+  "dim": 2560,
+  "runs": [
+   {
+    "seed": 0,
+    "test_acc": 0.8623376623376623,
+    "last_epoch_test_acc": 0.8668831168831169,
+    "val_acc": 0.866,
+    "kept_epoch": 67,
+    "train_seconds": 24.982893705368042
+   },
+   {
+    "seed": 1,
+    "test_acc": 0.8698051948051948,
+    "last_epoch_test_acc": 0.8678571428571429,
+    "val_acc": 0.86,
+    "kept_epoch": 73,
+    "train_seconds": 25.13598370552063
+   },
+   {
+    "seed": 2,
+    "test_acc": 0.8662337662337662,
+    "last_epoch_test_acc": 0.8688311688311688,
+    "val_acc": 0.865,
+    "kept_epoch": 68,
+    "train_seconds": 25.05053472518921
+   }
+  ],
+  "test_acc_mean": 0.8661255411255411,
+  "test_acc_min": 0.8623376623376623,
+  "test_acc_max": 0.8698051948051948,
+  "encode_seconds": 110,
+  "model_load_seconds_incl_download": 36,
+  "peak_memory_footprint_bytes": 18270803176,
+  "max_rss_bytes": 7622377472,
+  "wall_seconds": 148.29
+ },
+ "qwen3-8b-8bit": {
+  "dim": 4096,
+  "runs": [
+   {
+    "seed": 0,
+    "test_acc": 0.8834415584415585,
+    "last_epoch_test_acc": 0.8827922077922078,
+    "val_acc": 0.877,
+    "kept_epoch": 74,
+    "train_seconds": 33.066014766693115
+   },
+   {
+    "seed": 1,
+    "test_acc": 0.8814935064935064,
+    "last_epoch_test_acc": 0.8824675324675325,
+    "val_acc": 0.887,
+    "kept_epoch": 76,
+    "train_seconds": 32.98211193084717
+   },
+   {
+    "seed": 2,
+    "test_acc": 0.8762987012987012,
+    "last_epoch_test_acc": 0.8772727272727273,
+    "val_acc": 0.868,
+    "kept_epoch": 71,
+    "train_seconds": 33.26934289932251
+   }
+  ],
+  "test_acc_mean": 0.8804112554112554,
+  "test_acc_min": 0.8762987012987012,
+  "test_acc_max": 0.8834415584415585,
+  "encode_seconds": 236,
+  "model_load_seconds_incl_download": 1,
+  "peak_memory_footprint_bytes": 26141777960,
+  "max_rss_bytes": 9805021184,
+  "wall_seconds": 238.99
+ }
+}

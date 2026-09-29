@@ -90,3 +90,23 @@ def test_jsonl_encode_cache_and_cli(init, tmp_path):
     main([str(p), "--out", str(out), "--init", init, "--epochs", "3"])
     rep = json.load(open(tmp_path / "h.report.json"))
     assert rep["n_test"] == 8 and "verdict" in rep and Heads(str(out)).scale > 0
+
+
+def test_warmup_cosine_runs(init):
+    x, protos, y = data(40)
+    h, m = train_heads(x, protos, y, init=init, epochs=20, patience=20, batch=8, lr=5e-3, schedule="warmup_cosine")
+    assert m["epochs"] == 20 and 1 <= m["kept_epoch"] <= 20 and len(m["val_acc_history"]) == 20
+    _, m2 = train_heads(x, protos, y, init=init, epochs=20, patience=1, batch=8, schedule="warmup_cosine", test=(x, protos, y))
+    assert m2["epochs"] >= 2 and 0 <= m2["last_epoch_test_acc"] <= 1     # no stop inside the 2 warm-up epochs
+
+
+def test_fresh_init_seeded(init):
+    x, protos, y = data()
+    w = lambda h: np.array(h.state.inp.weight)
+    kw = dict(init=init, epochs=1, lr=0.0, init_mode="fresh")     # lr 0: weights stay at their initial values
+    a, _ = train_heads(x, protos, y, seed=1, **kw)
+    b, _ = train_heads(x, protos, y, seed=1, **kw)
+    c, _ = train_heads(x, protos, y, seed=2, **kw)
+    r, _ = train_heads(x, protos, y, seed=1, init=init, epochs=1, lr=0.0)
+    assert np.array_equal(w(a), w(b)) and not np.allclose(w(a), w(c)) and not np.allclose(w(a), w(r))
+    assert a.scale == pytest.approx(r.scale)
