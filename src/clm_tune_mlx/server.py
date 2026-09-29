@@ -20,11 +20,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class Batcher:
     """Serialises model access and coalesces whatever is queued into one encoder pass."""
 
-    def __init__(self, engine, max_batch: int = 32):
-        self.engine, self.max_batch = engine, max_batch
+    def __init__(self, engine=None, max_batch: int = 32, loader=None):
+        # MLX >= 0.32 keeps streams per thread: arrays made on one thread can't be evaluated on another.
+        # With `loader`, the engine is built on the worker thread that also runs every model call.
+        self.engine, self.max_batch, self.loader = engine, max_batch, loader
         self.q: queue.Queue = queue.Queue()
         self.batches: list[int] = []            # sizes of recent batches, for /v1/stats
+        self.ready = threading.Event()
         threading.Thread(target=self._run, daemon=True).start()
+        self.ready.wait()
+        if self.load_error:
+            raise self.load_error
 
     def answer(self, state, questions: dict, model: str | None = None) -> dict:
         job = {"state": state, "questions": questions, "model": model, "done": threading.Event()}
@@ -36,6 +42,16 @@ class Batcher:
 
     def _run(self):
         from .schema import build_pairs
+        self.load_error = None
+        try:
+            if self.loader is not None:
+                self.engine = self.loader()
+        except Exception as e:  # noqa: BLE001 - surfaced to the constructor
+            self.load_error = e
+        finally:
+            self.ready.set()
+        if self.load_error:
+            return
         while True:
             jobs = [self.q.get()]
             while len(jobs) < self.max_batch:
@@ -103,7 +119,7 @@ def main(argv=None):
     ap.add_argument("--max-batch", type=int, default=32)
     a = ap.parse_args(argv)
     from .embedder import DEFAULT_ENCODER, load_engine
-    batcher = Batcher(load_engine(a.encoder or DEFAULT_ENCODER, a.checkpoint), a.max_batch)
+    batcher = Batcher(max_batch=a.max_batch, loader=lambda: load_engine(a.encoder or DEFAULT_ENCODER, a.checkpoint))
     print(f"clm-mlx serving on http://{a.host}:{a.port}", flush=True)
     ThreadingHTTPServer((a.host, a.port), make_handler(batcher)).serve_forever()
 
